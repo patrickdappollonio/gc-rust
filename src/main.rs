@@ -80,7 +80,7 @@ fn run() -> Result<(), ApplicationError> {
         eprintln!("\u{ea83} Destination directory does not exist. Creating...",);
         fs::create_dir_all(&project_path).map_err(ApplicationError::CantCreateTargetDir)?;
     } else {
-        eprintln!("\u{eb32} Destination directory already exists. Press <Enter> to confirm deletion or <Ctrl+C> to cancel.");
+        eprint!("\u{eb32} Destination directory already exists. Press <Enter> to confirm deletion or <Ctrl+C> to cancel:");
         let mut input = String::new();
         io::stdin()
             .read_line(&mut input)
