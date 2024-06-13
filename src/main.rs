@@ -1,15 +1,17 @@
 use std::fmt::{Display, Formatter};
-use std::fs;
 use std::path::Path;
 use std::process::Command;
 use std::{env, fmt};
+use std::{fs, io};
 
 enum ApplicationError {
     BaseDirNotFound,
     BaseDirCannotBeOpened(std::io::Error),
     CantCreateTargetDir(std::io::Error),
+    CantDeleteTargetDir(std::io::Error),
     FailedCloneCommand(std::io::Error),
     FailedGitOperation(String),
+    FailedCaptureInput(std::io::Error),
 }
 
 impl Display for ApplicationError {
@@ -22,11 +24,17 @@ impl Display for ApplicationError {
             ApplicationError::CantCreateTargetDir(err) => {
                 write!(f, "Cannot create target directory: {}", err)
             }
+            ApplicationError::CantDeleteTargetDir(err) => {
+                write!(f, "Cannot delete target directory: {}", err)
+            }
             ApplicationError::FailedCloneCommand(err) => {
                 write!(f, "Failed to run the git clone command: {}", err)
             }
             ApplicationError::FailedGitOperation(err) => {
                 write!(f, "Failed to run the git operation: {}", err)
+            }
+            ApplicationError::FailedCaptureInput(err) => {
+                write!(f, "Failed to capture prompt: {}", err)
             }
         }
     }
@@ -42,7 +50,7 @@ fn main() {
     match run() {
         Ok(_) => {}
         Err(err) => {
-            eprintln!("Error: {}", err);
+            eprintln!("\u{f071} Error: {}", err);
             std::process::exit(1);
         }
     }
@@ -69,10 +77,20 @@ fn run() -> Result<(), ApplicationError> {
 
     // Create the directory if it does not exist
     if !Path::new(&project_path).exists() {
+        eprintln!("\u{ea83} Destination directory does not exist. Creating...",);
+        fs::create_dir_all(&project_path).map_err(ApplicationError::CantCreateTargetDir)?;
+    } else {
+        eprintln!("\u{eb32} Destination directory already exists. Press Enter to confirm deletion or Ctrl+C to cancel.");
+        let mut input = String::new();
+        io::stdin()
+            .read_line(&mut input)
+            .map_err(ApplicationError::FailedCaptureInput)?;
+        fs::remove_dir_all(&project_path).map_err(ApplicationError::CantDeleteTargetDir)?;
         fs::create_dir_all(&project_path).map_err(ApplicationError::CantCreateTargetDir)?;
     }
 
     // Run the git clone command
+    eprintln!("\u{ebcc} Cloning {}/{}...", team, project);
     let exec = Command::new("git")
         .arg("clone")
         .arg(repo_url)
@@ -85,7 +103,10 @@ fn run() -> Result<(), ApplicationError> {
         return Err(ApplicationError::FailedGitOperation(stderr.into_owned()));
     }
 
-    eprintln!("Successfully cloned {} into {}", repo_url, project_path);
+    eprintln!(
+        "\u{f058} Successfully cloned {}/{} into {}",
+        team, project, project_path
+    );
     println!("{}", project_path);
     Ok(())
 }
