@@ -1,0 +1,11 @@
+[package]
+name = "gc-rust"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+[profile.release]
+opt-level = "z"   # Optimize for size.
+lto = true        # Enable link time optimization.
+codegen-units = 1 # Reduce parallel code generation units.
