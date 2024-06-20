@@ -1,16 +1,17 @@
 use std::fmt::{Display, Formatter};
 use std::path::Path;
-use std::process::Command;
 use std::{env, fmt};
 use std::{fs, io};
+
+use subprocess::{Exec, Redirection};
 
 enum ApplicationError {
     BaseDirNotFound,
     BaseDirCannotBeOpened(std::io::Error),
     CantCreateTargetDir(std::io::Error),
     CantDeleteTargetDir(std::io::Error),
-    FailedCloneCommand(std::io::Error),
-    FailedGitOperation(String),
+    FailedCloneCommand(subprocess::PopenError),
+    FailedGitOperation(),
     FailedCaptureInput(std::io::Error),
 }
 
@@ -30,8 +31,8 @@ impl Display for ApplicationError {
             ApplicationError::FailedCloneCommand(err) => {
                 write!(f, "Failed to run the git clone command: {}", err)
             }
-            ApplicationError::FailedGitOperation(err) => {
-                write!(f, "Failed to run the git operation: {}", err)
+            ApplicationError::FailedGitOperation() => {
+                write!(f, "Failed to clone the repo.")
             }
             ApplicationError::FailedCaptureInput(err) => {
                 write!(f, "Failed to capture prompt: {}", err)
@@ -41,8 +42,8 @@ impl Display for ApplicationError {
 }
 
 impl From<ParseRepoError> for ApplicationError {
-    fn from(err: ParseRepoError) -> Self {
-        ApplicationError::FailedGitOperation(err.to_string())
+    fn from(_: ParseRepoError) -> Self {
+        ApplicationError::FailedGitOperation()
     }
 }
 
@@ -91,17 +92,17 @@ fn run() -> Result<(), ApplicationError> {
 
     // Run the git clone command
     eprintln!("\u{ebcc} Cloning {}/{}...", team, project);
-    let exec = Command::new("git")
-        .arg("clone")
-        .arg(repo_url)
-        .arg(&project_path)
-        .current_dir(env::temp_dir())
-        .output()
+
+    let exec = Exec::cmd("git")
+        .args(&["clone", repo_url, &project_path])
+        .cwd(env::temp_dir())
+        .stdout(Redirection::None)
+        .stderr(Redirection::None)
+        .capture()
         .map_err(ApplicationError::FailedCloneCommand)?;
 
-    if !exec.status.success() {
-        let stderr = String::from_utf8_lossy(&exec.stderr);
-        return Err(ApplicationError::FailedGitOperation(stderr.into_owned()));
+    if !exec.success() {
+        return Err(ApplicationError::FailedGitOperation());
     }
 
     eprintln!(
