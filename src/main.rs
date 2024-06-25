@@ -1,8 +1,8 @@
 use std::fmt::{Display, Formatter};
 use std::path::Path;
-use std::process::Command;
 use std::{env, fmt};
 use std::{fs, io};
+use subprocess::{Exec, Redirection};
 
 mod parser;
 
@@ -11,8 +11,9 @@ enum ApplicationError {
     BaseDirCannotBeOpened(std::io::Error),
     CantCreateTargetDir(std::io::Error),
     CantDeleteTargetDir(std::io::Error),
-    FailedCloneCommand(std::io::Error),
-    FailedGitOperation(String),
+    FailedCloneCommand(subprocess::PopenError),
+    FailedGitOperation(),
+    FailedParsingRepo(parser::ParseRepoError),
     FailedCaptureInput(std::io::Error),
 }
 
@@ -32,11 +33,14 @@ impl Display for ApplicationError {
             ApplicationError::FailedCloneCommand(err) => {
                 write!(f, "Failed to run the git clone command: {}", err)
             }
-            ApplicationError::FailedGitOperation(err) => {
-                write!(f, "Failed to run the git operation: {}", err)
+            ApplicationError::FailedGitOperation() => {
+                write!(f, "Failed to clone the repo.")
             }
             ApplicationError::FailedCaptureInput(err) => {
                 write!(f, "Failed to capture prompt: {}", err)
+            }
+            ApplicationError::FailedParsingRepo(err) => {
+                write!(f, "Failed to parse the repository URL: {}", err)
             }
         }
     }
@@ -44,7 +48,7 @@ impl Display for ApplicationError {
 
 impl From<parser::ParseRepoError> for ApplicationError {
     fn from(err: parser::ParseRepoError) -> Self {
-        ApplicationError::FailedGitOperation(err.to_string())
+        ApplicationError::FailedParsingRepo(err)
     }
 }
 
@@ -94,17 +98,17 @@ fn run() -> Result<(), ApplicationError> {
 
     // Run the git clone command
     eprintln!("\u{ebcc} Cloning {}/{}...", team, project);
-    let exec = Command::new("git")
-        .arg("clone")
-        .arg(clone_url)
-        .arg(&project_path)
-        .current_dir(env::temp_dir())
-        .output()
+
+    let exec = Exec::cmd("git")
+        .args(&["clone", &clone_url, &project_path])
+        .cwd(env::temp_dir())
+        .stdout(Redirection::None)
+        .stderr(Redirection::None)
+        .capture()
         .map_err(ApplicationError::FailedCloneCommand)?;
 
-    if !exec.status.success() {
-        let stderr = String::from_utf8_lossy(&exec.stderr);
-        return Err(ApplicationError::FailedGitOperation(stderr.into_owned()));
+    if !exec.success() {
+        return Err(ApplicationError::FailedGitOperation());
     }
 
     eprintln!(
