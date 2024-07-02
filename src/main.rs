@@ -65,6 +65,7 @@ fn main() {
 fn run() -> Result<(), ApplicationError> {
     // Get the base directory
     let base_dir = env::var("GOPATH").map_err(|_| ApplicationError::BaseDirNotFound)?;
+    let base_dir = format!("{}/src", base_dir);
 
     // Try opening the base directory
     fs::read_dir(&base_dir).map_err(ApplicationError::BaseDirCannotBeOpened)?;
