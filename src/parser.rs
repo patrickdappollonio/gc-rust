@@ -1,12 +1,14 @@
 use std::fmt::{self, Debug, Display, Formatter};
 
+use regex::Regex;
+
 #[derive(Debug)]
 pub enum ParseRepoError {
     NotSSH(String),
     CantParseColon(String),
     CantFindProjectAndName(String),
-    UnsupportedHTTPHost(String),
     UnparseableHTTPURL(String),
+    InvalidRegexp(regex::Error),
 }
 
 impl Display for ParseRepoError {
@@ -29,11 +31,11 @@ impl Display for ParseRepoError {
                     url
                 )
             }
-            ParseRepoError::UnsupportedHTTPHost(url) => {
-                write!(f, "Invalid repository URL: unsupported HTTP host: {}", url)
-            }
             ParseRepoError::UnparseableHTTPURL(url) => {
                 write!(f, "Invalid repository URL: unparseable HTTP URL: {}", url)
+            }
+            ParseRepoError::InvalidRegexp(e) => {
+                write!(f, "Invalid repository URL: invalid regexp: {}", e)
             }
         }
     }
@@ -42,8 +44,12 @@ impl Display for ParseRepoError {
 impl From<CantConvertError> for ParseRepoError {
     fn from(err: CantConvertError) -> Self {
         match err {
-            CantConvertError::InvalidHost(host) => ParseRepoError::UnsupportedHTTPHost(host),
             CantConvertError::InvalidURL(url) => ParseRepoError::UnparseableHTTPURL(url),
+            CantConvertError::MissingOrganization(url) => {
+                ParseRepoError::CantFindProjectAndName(url)
+            }
+            CantConvertError::MissingProject(url) => ParseRepoError::CantFindProjectAndName(url),
+            CantConvertError::InvalidRegexp(e) => ParseRepoError::InvalidRegexp(e),
         }
     }
 }
@@ -61,7 +67,10 @@ impl From<CantConvertSSHError> for ParseRepoError {
 }
 
 pub fn repository(repo_url: String) -> Result<(String, String, String), ParseRepoError> {
-    if repo_url.starts_with("http://") || repo_url.starts_with("https://") {
+    if repo_url.starts_with("http://")
+        || repo_url.starts_with("https://")
+        || repo_url.starts_with("github.com/")
+    {
         return parse_http_url(&repo_url).map_err(ParseRepoError::from);
     }
 
@@ -70,8 +79,10 @@ pub fn repository(repo_url: String) -> Result<(String, String, String), ParseRep
 
 #[derive(Debug)]
 enum CantConvertError {
-    InvalidHost(String),
     InvalidURL(String),
+    MissingOrganization(String),
+    MissingProject(String),
+    InvalidRegexp(regex::Error),
 }
 
 #[derive(Debug)]
@@ -106,21 +117,28 @@ fn parse_ssh_url(url: &str) -> Result<(String, String, String), CantConvertSSHEr
     Ok((host.to_string(), team.to_string(), project))
 }
 
-const SUPPORTED_HOSTS: [&str; 1] = ["github.com"];
-
 fn parse_http_url(url: &str) -> Result<(String, String, String), CantConvertError> {
-    let parts: Vec<&str> = url.split('/').collect();
-    if parts.len() < 5 {
-        return Err(CantConvertError::InvalidURL(url.to_owned()));
-    }
+    let re = Regex::new(r"^(https?://)?github\.com/(?<org>[^/]+)/(?<project>[^/]+).*$")
+        .map_err(CantConvertError::InvalidRegexp)?;
 
-    let (host, team, project) = (parts[2], parts[3], parts[4].trim_end_matches(".git"));
+    let caps = re
+        .captures(url)
+        .ok_or(CantConvertError::InvalidURL(url.to_owned()))?;
+    let team = caps
+        .name("org")
+        .ok_or(CantConvertError::MissingOrganization(url.to_owned()))?
+        .as_str();
+    let project = caps
+        .name("project")
+        .ok_or(CantConvertError::MissingProject(url.to_owned()))?
+        .as_str()
+        .trim_end_matches(".git");
 
-    if !SUPPORTED_HOSTS.contains(&host) {
-        return Err(CantConvertError::InvalidHost(host.to_string()));
-    }
-
-    Ok((host.to_string(), team.to_string(), project.to_string()))
+    Ok((
+        "github.com".to_string(),
+        team.to_string(),
+        project.to_string(),
+    ))
 }
 
 #[cfg(test)]
@@ -142,6 +160,7 @@ mod tests {
                 "https://github.com/team/project/foo/bar",
                 ("github.com", "team", "project"),
             ),
+            ("github.com/team/project", ("github.com", "team", "project")),
         ];
 
         for (input, expected) in cases {

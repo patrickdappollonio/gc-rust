@@ -1,3 +1,4 @@
+use getopts::Options;
 use std::fmt::{Display, Formatter};
 use std::path::Path;
 use std::{env, fmt};
@@ -12,15 +13,19 @@ enum ApplicationError {
     CantCreateTargetDir(std::io::Error),
     CantDeleteTargetDir(std::io::Error),
     FailedCloneCommand(subprocess::PopenError),
+    FailedCheckoutCommand(subprocess::PopenError),
     FailedGitOperation(),
     FailedParsingRepo(parser::ParseRepoError),
     FailedCaptureInput(std::io::Error),
+    ArgumentParsingError(getopts::Fail),
 }
 
 impl Display for ApplicationError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            ApplicationError::BaseDirNotFound => write!(f, "Base directory not found"),
+            ApplicationError::BaseDirNotFound => {
+                write!(f, "The base directory on which to download the repositories was not found. Ensure you have set the $GC_DOWNLOAD_PATH or $GOPATH environment variable.")
+            }
             ApplicationError::BaseDirCannotBeOpened(err) => {
                 write!(f, "Base directory cannot be opened: {}", err)
             }
@@ -33,6 +38,9 @@ impl Display for ApplicationError {
             ApplicationError::FailedCloneCommand(err) => {
                 write!(f, "Failed to run the git clone command: {}", err)
             }
+            ApplicationError::FailedCheckoutCommand(err) => {
+                write!(f, "Failed to run the git checkout command: {}", err)
+            }
             ApplicationError::FailedGitOperation() => {
                 write!(f, "Failed to clone the repo.")
             }
@@ -41,6 +49,9 @@ impl Display for ApplicationError {
             }
             ApplicationError::FailedParsingRepo(err) => {
                 write!(f, "Failed to parse the repository URL: {}", err)
+            }
+            ApplicationError::ArgumentParsingError(err) => {
+                write!(f, "Failed to parse arguments: {}", err)
             }
         }
     }
@@ -64,7 +75,9 @@ fn main() {
 
 fn run() -> Result<(), ApplicationError> {
     // Get the base directory
-    let base_dir = env::var("GOPATH").map_err(|_| ApplicationError::BaseDirNotFound)?;
+    let base_dir = env::var("GC_DOWNLOAD_PATH")
+        .or_else(|_| env::var("GOPATH"))
+        .map_err(|_| ApplicationError::BaseDirNotFound)?;
     let base_dir = format!("{}/src", base_dir);
 
     // Try opening the base directory
@@ -72,11 +85,27 @@ fn run() -> Result<(), ApplicationError> {
 
     // Get the repository URL from the command line arguments
     let args: Vec<String> = env::args().collect();
-    if args.len() != 2 {
-        eprintln!("Usage: gc <repository-url>");
+    let mut opts = Options::new();
+    opts.optopt(
+        "b",
+        "branch",
+        "set the branch to checkout after cloning",
+        "BRANCH",
+    );
+
+    let matches = match opts.parse(&args[1..]) {
+        Ok(m) => m,
+        Err(f) => return Err(ApplicationError::ArgumentParsingError(f)),
+    };
+
+    let repo_url = if !matches.free.is_empty() {
+        matches.free[0].clone()
+    } else {
+        eprintln!("Usage: gc <repository-url> [-b <branch>]");
         return Ok(());
-    }
-    let repo_url = &args[1];
+    };
+
+    let branch = matches.opt_str("b");
 
     // Parse the repository URL
     let (host, team, project) = parser::repository(repo_url.to_string())?;
@@ -116,6 +145,25 @@ fn run() -> Result<(), ApplicationError> {
         "\u{f058} Successfully cloned {}/{} into {}",
         team, project, project_path
     );
+
+    if let Some(branch) = branch {
+        eprintln!("\u{f5c4} Checking out branch {}...", branch);
+
+        let exec = Exec::cmd("git")
+            .args(&["checkout", &branch])
+            .cwd(&project_path)
+            .stdout(Redirection::None)
+            .stderr(Redirection::None)
+            .capture()
+            .map_err(ApplicationError::FailedCheckoutCommand)?;
+
+        if !exec.success() {
+            return Err(ApplicationError::FailedGitOperation());
+        }
+
+        eprintln!("\u{f5c4} Successfully checked out branch {}", branch);
+    }
+
     println!("{}", project_path);
     Ok(())
 }

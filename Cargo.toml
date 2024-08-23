@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+getopts = "0.2.21"
+regex = "1.10.6"
 subprocess = "0.2.9"
 
 [profile.release]
