@@ -1,4 +1,4 @@
-name: Rust
+name: Release Rust Application
 
 on:
   release:
@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   release:
-    name: release ${{ matrix.target }}
+    name: Release for ${{ matrix.target }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
