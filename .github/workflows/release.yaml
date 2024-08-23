@@ -30,7 +30,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
-          bin: $bin
+          bin: gc-rust
           archive: $bin-$tag-${{ matrix.archive }}
           target: ${{ matrix.target }}
           tar: unix
