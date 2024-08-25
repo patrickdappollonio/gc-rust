@@ -67,14 +67,15 @@ impl From<CantConvertSSHError> for ParseRepoError {
 }
 
 pub fn repository(repo_url: String) -> Result<(String, String, String), ParseRepoError> {
-    if repo_url.starts_with("http://")
-        || repo_url.starts_with("https://")
-        || repo_url.starts_with("github.com/")
-    {
+    let prefixes = ["http://", "https://", "github.com/"];
+    if prefixes.iter().any(|prefix| repo_url.starts_with(prefix)) {
         return parse_http_url(&repo_url).map_err(ParseRepoError::from);
     }
 
-    parse_ssh_url(&repo_url).map_err(ParseRepoError::from)
+    match repo_url.split('/').collect::<Vec<&str>>().as_slice() {
+        [_, _] => parse_user_repo(&repo_url).map_err(ParseRepoError::from),
+        _ => parse_ssh_url(&repo_url).map_err(ParseRepoError::from),
+    }
 }
 
 #[derive(Debug)]
@@ -92,29 +93,48 @@ enum CantConvertSSHError {
     CantFindProjectAndName(String),
 }
 
+fn parse_user_repo(location: &str) -> Result<(String, String, String), CantConvertError> {
+    let re = Regex::new(r"^(?<user>[a-zA-Z0-9-]+)/(?<repo>[\w\.-]+)$")
+        .map_err(CantConvertError::InvalidRegexp)?;
+
+    let caps = re
+        .captures(location)
+        .ok_or(CantConvertError::InvalidURL(location.to_owned()))?;
+    let user = caps
+        .name("user")
+        .ok_or(CantConvertError::MissingOrganization(location.to_owned()))?
+        .as_str();
+    let repo = caps
+        .name("repo")
+        .ok_or(CantConvertError::MissingProject(location.to_owned()))?
+        .as_str();
+
+    Ok(("github.com".to_owned(), user.to_string(), repo.to_string()))
+}
+
 fn parse_ssh_url(url: &str) -> Result<(String, String, String), CantConvertSSHError> {
-    let parts: Vec<&str> = url.split('@').collect();
+    let parts: Vec<&str> = url.splitn(2, '@').collect();
 
     if parts.len() != 2 {
         return Err(CantConvertSSHError::NotSSH(url.to_string()));
     }
 
     let repo_path = parts[1];
-    let parts: Vec<&str> = repo_path.split(':').collect();
+    let parts: Vec<&str> = repo_path.splitn(2, ':').collect();
     if parts.len() != 2 {
         return Err(CantConvertSSHError::CantParseColon(url.to_string()));
     }
 
     let host = parts[0];
-    let path_parts: Vec<&str> = parts[1].split('/').collect();
+    let path_parts: Vec<&str> = parts[1].splitn(2, '/').collect();
     if path_parts.len() != 2 {
         return Err(CantConvertSSHError::CantFindProjectAndName(url.to_string()));
     }
 
     let team = path_parts[0];
-    let project = path_parts[1].replace(".git", "");
+    let project = path_parts[1].strip_suffix(".git").unwrap_or(path_parts[1]);
 
-    Ok((host.to_string(), team.to_string(), project))
+    Ok((host.to_string(), team.to_string(), project.to_string()))
 }
 
 fn parse_http_url(url: &str) -> Result<(String, String, String), CantConvertError> {
@@ -178,6 +198,38 @@ mod tests {
 
         for input in cases {
             let result = repository(input.to_string());
+            assert!(result.is_err());
+        }
+    }
+
+    #[test]
+    fn test_valid_user_repo() {
+        let cases = vec![
+            (
+                "patrickdappollonio/gc-rust",
+                ("patrickdappollonio", "gc-rust"),
+            ),
+            (
+                "patrickdappollonio/example",
+                ("patrickdappollonio", "example"),
+            ),
+        ];
+
+        for (input, expected) in cases {
+            let (host, user, repo) = parse_user_repo(input).unwrap();
+            let (expected_user, expected_repo) = expected;
+            assert_eq!(host, "github.com".to_string());
+            assert_eq!(user, expected_user.to_string());
+            assert_eq!(repo, expected_repo.to_string());
+        }
+    }
+
+    #[test]
+    fn test_invalid_user_repo() {
+        let cases = vec!["", "patrickdappollonio", "patrickdappollonio/"];
+
+        for input in cases {
+            let result = parse_user_repo(input);
             assert!(result.is_err());
         }
     }
