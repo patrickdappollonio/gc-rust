@@ -72,10 +72,11 @@ pub fn repository(repo_url: String) -> Result<(String, String, String), ParseRep
         return parse_http_url(&repo_url).map_err(ParseRepoError::from);
     }
 
-    match repo_url.split('/').collect::<Vec<&str>>().as_slice() {
-        [_, _] => parse_user_repo(&repo_url).map_err(ParseRepoError::from),
-        _ => parse_ssh_url(&repo_url).map_err(ParseRepoError::from),
+    if repo_url.contains('@') && repo_url.contains(':') {
+        return parse_ssh_url(&repo_url).map_err(ParseRepoError::from);
     }
+
+    parse_user_repo(&repo_url).map_err(ParseRepoError::from)
 }
 
 #[derive(Debug)]
@@ -94,6 +95,7 @@ enum CantConvertSSHError {
 }
 
 fn parse_user_repo(location: &str) -> Result<(String, String, String), CantConvertError> {
+    dbg!("parsing using user/repo");
     let re = Regex::new(r"^(?<user>[a-zA-Z0-9-]+)/(?<repo>[\w\.-]+)$")
         .map_err(CantConvertError::InvalidRegexp)?;
 
@@ -113,6 +115,7 @@ fn parse_user_repo(location: &str) -> Result<(String, String, String), CantConve
 }
 
 fn parse_ssh_url(url: &str) -> Result<(String, String, String), CantConvertSSHError> {
+    dbg!("parsing using SSH");
     let parts: Vec<&str> = url.splitn(2, '@').collect();
 
     if parts.len() != 2 {
@@ -138,6 +141,7 @@ fn parse_ssh_url(url: &str) -> Result<(String, String, String), CantConvertSSHEr
 }
 
 fn parse_http_url(url: &str) -> Result<(String, String, String), CantConvertError> {
+    dbg!("parsing using HTTP");
     let re = Regex::new(r"^(https?://)?github\.com/(?<org>[^/]+)/(?<project>[^/]+).*$")
         .map_err(CantConvertError::InvalidRegexp)?;
 
