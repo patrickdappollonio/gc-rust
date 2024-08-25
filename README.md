@@ -33,12 +33,14 @@ To clone the repository, you can run any of the following:
 ```bash
 gc-rust git@github.com:example/application.git
 gc-rust github.com/example/application
+gc-rust example/application
 gc-rust https://github.com/example/application
 gc-rust https://github.com/example/application/issues
 gc-rust https://github.com/example/application/security/dependabot
+gc-rust https://github.com/example/application/this/is/a/made/up/path
 ```
 
-All of them will detect the repository being `github.com/example/app` and clone it to the correct location.
+All of them will detect the repository being `github.com/example/application` and clone it to the correct location.
 
 The output of `gc-rust` will all be printed to `stderr` with one exception: the folder location where it was cloned. This is useful if you want to create a function that both clones a repository and then `cd` into it:
 
