@@ -31,7 +31,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - run: |
+      - shell: bash
+        run: |
           # Update the version in Cargo.toml
           TAG_NAME="${{ github.event.release.tag_name }}"
           TAG_NAME="${TAG_NAME#v}"
