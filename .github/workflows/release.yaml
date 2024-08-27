@@ -35,7 +35,11 @@ jobs:
           # Update the version in Cargo.toml
           TAG_NAME="${{ github.event.release.tag_name }}"
           TAG_NAME="${TAG_NAME#v}"
-          sed -i "s/^version = .*/version = \"$TAG_NAME\"/" Cargo.toml
+          if [[ "${{ runner.os }}" == "macos-latest" ]]; then
+              sed -i "" "s/^version = .*/version = \"$TAG_NAME\"/" Cargo.toml
+          else
+              sed -i "s/^version = .*/version = \"$TAG_NAME\"/" Cargo.toml
+          fi
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
           bin: gc-rust
