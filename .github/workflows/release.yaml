@@ -31,6 +31,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - run: |
+          # Update the version in Cargo.toml
+          GITHUB_REF="${GITHUB_REF#v}"
+          sed -i "s/^version = .*/version = \"$GITHUB_REF\"/" Cargo.toml
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
           bin: gc-rust
