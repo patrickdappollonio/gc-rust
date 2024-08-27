@@ -114,10 +114,17 @@ fn run() -> Result<(), ApplicationError> {
 
     // Create the directory if it does not exist
     if !Path::new(&project_path).exists() {
-        eprintln!("\u{ea83} Destination directory does not exist. Creating...",);
+        eprintln!(
+            "\u{ea83} Destination directory for {}/{} does not exist. Creating...",
+            team, project
+        );
         fs::create_dir_all(&project_path).map_err(ApplicationError::CantCreateTargetDir)?;
     } else {
-        eprint!("\u{eb32} Destination directory already exists. Press <Enter> to confirm deletion or <Ctrl+C> to cancel...");
+        eprintln!(
+            "\u{eb32} Destination directory for {}/{} already exists.",
+            team, project
+        );
+        eprintln!("Press <Enter> to confirm deletion or <Ctrl+C> to cancel...");
         let mut input = String::new();
         io::stdin()
             .read_line(&mut input)
