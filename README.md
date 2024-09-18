@@ -51,7 +51,7 @@ function gc() {
     exit 1
   fi
 
-  cd "$(gc-rust "$1")" || return
+  cd "$(gc-rust "$@")" || return
 }
 ```
 
