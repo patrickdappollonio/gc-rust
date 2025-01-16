@@ -1,34 +1,54 @@
 # `gc-rust` a GitHub clone helper
 
+- [`gc-rust` a GitHub clone helper](#gc-rust-a-github-clone-helper)
+    - [Installation](#installation)
+    - [Usage](#usage)
+    - [Defining a location for the repositories](#defining-a-location-for-the-repositories)
+    - [Specifying a branch](#specifying-a-branch)
+
 `gc-rust` is a tiny Rust application that allows you to clone GitHub repositories with ease to a predetermined location.
 
-As an original Go developer, I liked the idea that my code was organized in the form of:
+As a Go developer, I liked the idea that my code was organized using a `$GOPATH`, in the form of:
 
-```
-~/go/src/github.com/<username>/<repository>
+```bash
+$HOME/go/src/github.com/<username>/<repository>
 ```
 
 So I kept maintaining even non-Go projects in the same way.
 
-This is where `gc-rust` comes in handy. Given a GitHub repository URL, it will perform the `git clone` operation by finding the appropriate location for the resulting folder.
+![Example of a cloned repository](./carbon.png)
+
+This is where `gc-rust` comes in handy: Given a GitHub repository URL, it will perform the `git clone` operation by finding the appropriate location for the resulting folder.
 
 For example, given the repository:
 
-```
+```bash
 github.com/example/application
 ```
 
 It will correctly create the folder structure so the repository is cloned to:
 
-```
-~/go/src/github.com/example/application
+```bash
+$HOME/go/src/github.com/example/application
 ```
 
-If there was a preexistent folder, it will ask you if you want to overwrite it. **This will destroy any prior content in the destination folder!**
+You can configure the location where the repositories are cloned by setting the `$GC_DOWNLOAD_PATH` environment variable. [Instructions below](#defining-a-location-for-the-repositories).
+
+If there was a preexistent folder in the location where the clone should happen, it will ask you if you want to overwrite it. **This will destroy any prior content in the destination folder!**
+
+### Installation
+
+Download a copy of the binary and place it anywhere in your `$PATH`. Downloads are available in the [releases page](https://www.github.com/patrickdappollonio/gc-rust/releases/latest).
+
+If you have Homebrew installed on macOS or Linux, you can also install it via:
+
+```bash
+brew install patrickdappollonio/tap/gc-rust
+```
 
 ### Usage
 
-To clone the repository, you can run any of the following:
+To clone a GitHub repository, you can use any of the following instructions:
 
 ```bash
 gc-rust git@github.com:example/application.git
@@ -40,7 +60,7 @@ gc-rust https://github.com/example/application/security/dependabot
 gc-rust https://github.com/example/application/this/is/a/made/up/path
 ```
 
-All of them will detect the repository being `github.com/example/application` and clone it to the correct location.
+All of them will detect the repository as `github.com/example/application` and clone it to the correct location.
 
 The output of `gc-rust` will all be printed to `stderr` with one exception: the folder location where it was cloned. This is useful if you want to create a function that both clones a repository and then `cd` into it:
 
@@ -55,7 +75,7 @@ function gc() {
 }
 ```
 
-With this in your `bashrc` or `bash_profile`, you can now simply run `gc` and it will clone the repository and `cd` into it:
+With this in your `.bashrc` or `.bash_profile`, you can now simply run `gc` and it will clone the repository and `cd` into it:
 
 ```bash
 $ pwd
@@ -78,11 +98,11 @@ $ pwd
 
 ### Defining a location for the repositories
 
-By default, `gc-rust` will clone the repositories to the path defined in the environment variable `$GC_DOWNLOAD_PATH`. If this variable is not set, it will use the `$GOPATH` environment variable since the original idea came from Go project management. If neither are defined you'll see an error.
+By default, **`gc-rust` will clone the repositories to the path defined in the environment variable `$GC_DOWNLOAD_PATH`**. If this variable is not set, it will use the `$GOPATH` environment variable since the original idea came from Go project management. If neither are defined you'll see an error.
 
 ### Specifying a branch
 
-Contrary to what you might think, `gc-rust` will not deduce a branch name from the URL. Instead, it will clone using whatever branch is currently set as the default in the repository. If you want to clone a specific branch, you can do so by specifying the `-b` or `--branch` flag:
+Contrary to what you might think, **`gc-rust` will not deduce a branch name from the URL**. Instead, it will clone using whatever branch is currently set as the default in the repository. If you want to clone a specific branch, you can do so by specifying the `-b` or `--branch` flag:
 
 ```bash
 # this will clone `patrickdappollonio/http-server` into the `feature-branch` branch,
