@@ -16,6 +16,8 @@ $HOME/go/src/github.com/<username>/<repository>
 
 So I kept maintaining even non-Go projects in the same way.
 
+![Example of a cloned repository](./carbon.png)
+
 This is where `gc-rust` comes in handy: Given a GitHub repository URL, it will perform the `git clone` operation by finding the appropriate location for the resulting folder.
 
 For example, given the repository:
