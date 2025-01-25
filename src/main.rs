@@ -4,6 +4,7 @@ use std::path::Path;
 use std::{env, fmt};
 use std::{fs, io};
 use subprocess::{Exec, Redirection};
+use terminal_emoji::Emoji;
 
 mod parser;
 
@@ -67,10 +68,19 @@ fn main() {
     match run() {
         Ok(_) => {}
         Err(err) => {
-            eprintln!("\u{f071} Error: {}", err);
+            eprintln!("{} Error: {}", get_emoji("x", "\u{f071}"), err);
             std::process::exit(1);
         }
     }
+}
+
+/// Get an emoji by shortcode or fallback to a unicode code point or string
+fn get_emoji(emoji_code: &str, fallback: &str) -> String {
+    Emoji::new(
+        emojis::get_by_shortcode(emoji_code).unwrap().as_str(),
+        fallback,
+    )
+    .to_string()
 }
 
 fn run() -> Result<(), ApplicationError> {
@@ -79,6 +89,11 @@ fn run() -> Result<(), ApplicationError> {
         .or_else(|_| env::var("GOPATH"))
         .map_err(|_| ApplicationError::BaseDirNotFound)?;
     let base_dir = format!("{}/src", base_dir);
+
+    // Get the default user if one is set
+    let default_user = env::var("GC_GITHUB_USERNAME")
+        .or_else(|_| env::var("GITHUB_USERNAME"))
+        .unwrap_or("".to_string());
 
     // Try opening the base directory
     fs::read_dir(&base_dir).map_err(ApplicationError::BaseDirCannotBeOpened)?;
@@ -108,21 +123,25 @@ fn run() -> Result<(), ApplicationError> {
     let branch = matches.opt_str("b");
 
     // Parse the repository URL
-    let (host, team, project) = parser::repository(repo_url.to_string())?;
+    let (host, team, project) = parser::repository(default_user, repo_url.to_string())?;
     let project_path = format!("{}/{}/{}/{}", base_dir, host, team, project);
     let clone_url = format!("git@{}:{}/{}.git", host, team, project);
 
     // Create the directory if it does not exist
     if !Path::new(&project_path).exists() {
         eprintln!(
-            "\u{ea83} Destination directory for {}/{} does not exist. Creating...",
-            team, project
+            "{} Destination directory for {}/{} does not exist. Creating...",
+            get_emoji("white_check_mark", "\u{ea83}"),
+            team,
+            project
         );
         fs::create_dir_all(&project_path).map_err(ApplicationError::CantCreateTargetDir)?;
     } else {
         eprintln!(
-            "\u{eb32} Destination directory for {}/{} already exists.",
-            team, project
+            "{} Destination directory for {}/{} already exists.",
+            get_emoji("warning", "\u{eb32}"),
+            team,
+            project
         );
         eprintln!("Press <Enter> to confirm deletion or <Ctrl+C> to cancel...");
         let mut input = String::new();
@@ -134,7 +153,12 @@ fn run() -> Result<(), ApplicationError> {
     }
 
     // Run the git clone command
-    eprintln!("\u{ebcc} Cloning {}/{}...", team, project);
+    eprintln!(
+        "{} Cloning {}/{}...",
+        get_emoji("inbox_tray", "\u{ebcc}"),
+        team,
+        project,
+    );
 
     let exec = Exec::cmd("git")
         .args(&["clone", &clone_url, &project_path])
@@ -149,12 +173,19 @@ fn run() -> Result<(), ApplicationError> {
     }
 
     eprintln!(
-        "\u{f058} Successfully cloned {}/{} into {}",
-        team, project, project_path
+        "{} Successfully cloned {}/{} into {}",
+        get_emoji("white_check_mark", "\u{f058}"),
+        team,
+        project,
+        project_path
     );
 
     if let Some(branch) = branch {
-        eprintln!("\u{f5c4} Checking out branch {}...", branch);
+        eprintln!(
+            "{} Checking out branch {}...",
+            get_emoji("zap", "\u{f5c4}"),
+            branch
+        );
 
         let exec = Exec::cmd("git")
             .args(&["checkout", &branch])
@@ -168,7 +199,11 @@ fn run() -> Result<(), ApplicationError> {
             return Err(ApplicationError::FailedGitOperation());
         }
 
-        eprintln!("\u{f5c4} Successfully checked out branch {}", branch);
+        eprintln!(
+            "{} Successfully checked out branch {}",
+            get_emoji("white_check_mark", "\u{f5c4}"),
+            branch
+        );
     }
 
     println!("{}", project_path);

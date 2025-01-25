@@ -4,11 +4,14 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+emojis = "0.6.4"
 getopts = "0.2.21"
 regex = "1.11"
 subprocess = "0.2.9"
+terminal-emoji = "0.4.1"
 
 [profile.release]
 opt-level = "z"   # Optimize for size.
 lto = true        # Enable link time optimization.
 codegen-units = 1 # Reduce parallel code generation units.
+debug = 0         # No debug information
