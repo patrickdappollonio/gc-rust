@@ -66,12 +66,15 @@ impl From<CantConvertSSHError> for ParseRepoError {
     }
 }
 
-pub fn repository(repo_url: String) -> Result<(String, String, String), ParseRepoError> {
+pub fn repository(
+    default_user: String,
+    repo_url: String,
+) -> Result<(String, String, String), ParseRepoError> {
     if repo_url.contains('@') && repo_url.contains(':') {
         return parse_ssh_url(&repo_url).map_err(ParseRepoError::from);
     }
 
-    parse_http_url(&repo_url).map_err(ParseRepoError::from)
+    parse_http_url(&default_user, &repo_url).map_err(ParseRepoError::from)
 }
 
 #[derive(Debug)]
@@ -114,22 +117,27 @@ fn parse_ssh_url(url: &str) -> Result<(String, String, String), CantConvertSSHEr
     Ok((host.to_string(), team.to_string(), project.to_string()))
 }
 
-fn parse_http_url(url: &str) -> Result<(String, String, String), CantConvertError> {
-    let re = Regex::new(r"^(https://)?(github\.com/)?(?<org>[a-zA-Z0-9-]+)/(?<repo>[\w\.-]+).*$")
-        .map_err(CantConvertError::InvalidRegexp)?;
+fn parse_http_url(
+    default_user: &str,
+    url: &str,
+) -> Result<(String, String, String), CantConvertError> {
+    let re =
+        Regex::new(r"^(https://)?(github\.com/)?((?<org>[a-zA-Z0-9-]+)/)?(?<repo>[\w\.-]+).*$")
+            .map_err(CantConvertError::InvalidRegexp)?;
 
     let caps = re
         .captures(url)
         .ok_or(CantConvertError::InvalidURL(url.to_owned()))?;
-    let team = caps
-        .name("org")
-        .ok_or(CantConvertError::MissingOrganization(url.to_owned()))?
-        .as_str();
+    let team = caps.name("org").map_or(default_user, |m| m.as_str());
     let project = caps
         .name("repo")
         .ok_or(CantConvertError::MissingProject(url.to_owned()))?
         .as_str()
         .trim_end_matches(".git");
+
+    if team.is_empty() {
+        return Err(CantConvertError::MissingOrganization(url.to_owned()));
+    }
 
     Ok((
         "github.com".to_string(),
@@ -147,36 +155,49 @@ mod tests {
         let cases = vec![
             (
                 "git@github.com:example/application.git",
+                "",
                 ("github.com", "example", "application"),
             ),
             (
                 "github.com/example/application",
+                "",
                 ("github.com", "example", "application"),
             ),
             (
                 "example/application",
+                "",
                 ("github.com", "example", "application"),
             ),
             (
                 "https://github.com/example/application",
+                "",
                 ("github.com", "example", "application"),
             ),
             (
                 "https://github.com/example/application/issues",
+                "",
                 ("github.com", "example", "application"),
             ),
             (
                 "https://github.com/example/application/security/dependabot",
+                "",
                 ("github.com", "example", "application"),
             ),
             (
                 "https://github.com/example/application/this/is/a/made/up/path",
+                "",
                 ("github.com", "example", "application"),
+            ),
+            (
+                "example",
+                "patrickdappollonio",
+                ("github.com", "patrickdappollonio", "example"),
             ),
         ];
 
-        for (input, expected) in cases {
-            let (host, team, project) = repository(input.to_string()).unwrap();
+        for (input, default_user, expected) in cases {
+            let (host, team, project) =
+                repository(default_user.to_string(), input.to_string()).unwrap();
             let (expected_host, expected_team, expected_project) = expected;
             assert_eq!(host, expected_host.to_string());
             assert_eq!(team, expected_team.to_string());
@@ -189,7 +210,7 @@ mod tests {
         let cases = vec![""];
 
         for input in cases {
-            let result = repository(input.to_string());
+            let result = repository(input.to_string(), input.to_string());
             assert!(result.is_err());
         }
     }
@@ -200,28 +221,32 @@ mod tests {
             (
                 "https://github.com/patrickdappollonio/gc-rust",
                 false,
+                "",
                 ("github.com", "patrickdappollonio", "gc-rust"),
             ),
             (
                 "https://github.com/patrickdappollonio/gc-rust.git",
                 false,
+                "",
                 ("github.com", "patrickdappollonio", "gc-rust"),
             ),
-            ("http://patrickdap.com", true, ("", "", "")),
+            ("http://patrickdap.com", true, "", ("", "", "")),
             (
                 "https://github.com/patrickdappollonio/gc-rust/foo/bar",
                 false,
+                "",
                 ("github.com", "patrickdappollonio", "gc-rust"),
             ),
             (
                 "patrickdappollonio/gc-rust",
                 false,
+                "",
                 ("github.com", "patrickdappollonio", "gc-rust"),
             ),
         ];
 
-        for (input, should_fail, expected) in cases {
-            let result = parse_http_url(input);
+        for (input, should_fail, default_user, expected) in cases {
+            let result = parse_http_url(default_user, input);
 
             if should_fail {
                 assert!(result.is_err());
