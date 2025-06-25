@@ -45,19 +45,29 @@ fn platform_supports_emoji() -> bool {
 ///     - Unix systems have support if the active language supports them.
 ///     - Windows machines running the new Terminal app support Emojis.
 ///
-/// Additionally, this function recognizes tmux sessions as terminals.
+/// Additionally, this function recognizes terminal multiplexers as terminals.
 ///
 /// # Returns
 ///
 /// `true` if stdout is a terminal and the platform supports Emoji output, `false` otherwise.
 fn supports_emoji() -> bool {
-    let is_terminal = std::io::stdout().is_terminal() || is_tmux_session();
+    let is_terminal = std::io::stdout().is_terminal() || is_terminal_multiplexer();
     platform_supports_emoji() && is_terminal
 }
 
-/// Check if we're running inside a tmux session.
-fn is_tmux_session() -> bool {
+/// Check if we're running inside a terminal multiplexer.
+///
+/// This function detects various terminal multiplexers by checking for their
+/// characteristic environment variables:
+/// - tmux: TMUX
+/// - GNU Screen: STY
+/// - Zellij: ZELLIJ
+/// - byobu: BYOBU_TTY
+fn is_terminal_multiplexer() -> bool {
     std::env::var("TMUX").is_ok()
+        || std::env::var("STY").is_ok()
+        || std::env::var("ZELLIJ").is_ok()
+        || std::env::var("BYOBU_TTY").is_ok()
 }
 
 /// An emoji with safety fallback.
