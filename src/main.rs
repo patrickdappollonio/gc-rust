@@ -20,6 +20,8 @@ enum ApplicationError {
     FailedParsingRepo(parser::ParseRepoError),
     FailedCaptureInput(std::io::Error),
     ArgumentParsingError(getopts::Fail),
+    RemoteBranchNotFound(String),
+    FailedRemoteBranchCheck(subprocess::PopenError),
 }
 
 impl Display for ApplicationError {
@@ -54,6 +56,12 @@ impl Display for ApplicationError {
             }
             ApplicationError::ArgumentParsingError(err) => {
                 write!(f, "Failed to parse arguments: {}", err)
+            }
+            ApplicationError::RemoteBranchNotFound(branch) => {
+                write!(f, "Remote branch \"{}\" not found", branch)
+            }
+            ApplicationError::FailedRemoteBranchCheck(err) => {
+                write!(f, "Failed to check remote branch: {}", err)
             }
         }
     }
@@ -183,13 +191,40 @@ fn run() -> Result<(), ApplicationError> {
 
     if let Some(branch) = branch {
         eprintln!(
+            "{} Checking if remote branch \"{}\" exists...",
+            get_emoji("mag", "\u{f52d}"),
+            branch
+        );
+
+        // Check if the remote branch exists
+        let exec = Exec::cmd("git")
+            .args(&["ls-remote", "--heads", "origin", &branch])
+            .cwd(&project_path)
+            .stdout(Redirection::Pipe)
+            .stderr(Redirection::None)
+            .capture()
+            .map_err(ApplicationError::FailedRemoteBranchCheck)?;
+
+        if !exec.success() {
+            return Err(ApplicationError::FailedGitOperation());
+        }
+
+        let output = String::from_utf8_lossy(&exec.stdout);
+        if output.trim().is_empty() {
+            return Err(ApplicationError::RemoteBranchNotFound(branch.clone()));
+        }
+
+        eprintln!("Remote branch \"{}\" found", branch);
+
+        eprintln!(
             "{} Checking out branch \"{}\"...",
             get_emoji("twisted_rightwards_arrows", "\u{f5c4}"),
             branch
         );
 
+        // Create and checkout a local branch that tracks the remote branch
         let exec = Exec::cmd("git")
-            .args(&["checkout", &branch])
+            .args(&["checkout", "-b", &branch, &format!("origin/{}", branch)])
             .cwd(&project_path)
             .stdout(Redirection::None)
             .stderr(Redirection::None)
