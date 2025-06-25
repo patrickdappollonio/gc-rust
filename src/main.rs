@@ -183,8 +183,8 @@ fn run() -> Result<(), ApplicationError> {
 
     if let Some(branch) = branch {
         eprintln!(
-            "{} Checking out branch {}...",
-            get_emoji("zap", "\u{f5c4}"),
+            "{} Checking out branch \"{}\"...",
+            get_emoji("twisted_rightwards_arrows", "\u{f5c4}"),
             branch
         );
 
@@ -201,7 +201,7 @@ fn run() -> Result<(), ApplicationError> {
         }
 
         eprintln!(
-            "{} Successfully checked out branch {}",
+            "{} Successfully checked out branch \"{}\"",
             get_emoji("white_check_mark", "\u{f5c4}"),
             branch
         );
