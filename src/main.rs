@@ -214,7 +214,10 @@ fn run() -> Result<(), ApplicationError> {
             return Err(ApplicationError::RemoteBranchNotFound(branch.clone()));
         }
 
-        eprintln!("Remote branch \"{}\" found", branch);
+        eprintln!(
+            "Remote branch \"{}\" found, proceeding with checkout",
+            branch
+        );
 
         eprintln!(
             "{} Checking out branch \"{}\"...",
