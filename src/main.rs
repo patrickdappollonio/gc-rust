@@ -192,7 +192,7 @@ fn run() -> Result<(), ApplicationError> {
     if let Some(branch) = branch {
         eprintln!(
             "{} Checking if remote branch \"{}\" exists...",
-            get_emoji("mag", "\u{f52d}"),
+            get_emoji("mag", "\u{f002}"),
             branch
         );
 
@@ -221,7 +221,7 @@ fn run() -> Result<(), ApplicationError> {
 
         eprintln!(
             "{} Checking out branch \"{}\"...",
-            get_emoji("twisted_rightwards_arrows", "\u{f5c4}"),
+            get_emoji("twisted_rightwards_arrows", "\u{f126}"),
             branch
         );
 
@@ -240,7 +240,7 @@ fn run() -> Result<(), ApplicationError> {
 
         eprintln!(
             "{} Successfully checked out branch \"{}\"",
-            get_emoji("white_check_mark", "\u{f5c4}"),
+            get_emoji("white_check_mark", "\u{f058}"),
             branch
         );
     }
