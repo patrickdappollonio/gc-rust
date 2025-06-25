@@ -1,11 +1,12 @@
+use emoji::Emoji;
 use getopts::Options;
 use std::fmt::{Display, Formatter};
 use std::path::Path;
 use std::{env, fmt};
 use std::{fs, io};
 use subprocess::{Exec, Redirection};
-use terminal_emoji::Emoji;
 
+mod emoji;
 mod parser;
 
 enum ApplicationError {
@@ -76,7 +77,7 @@ fn main() {
 
 /// Get an emoji by shortcode or fallback to a unicode code point or string
 fn get_emoji(emoji_code: &str, fallback: &str) -> String {
-    Emoji::new(
+    Emoji(
         emojis::get_by_shortcode(emoji_code).unwrap().as_str(),
         fallback,
     )
