@@ -1,5 +1,7 @@
 # `gc-rust` a GitHub clone helper
 
+[![Github Downloads](https://img.shields.io/github/downloads/patrickdappollonio/gc-rust/total?color=orange&label=github%20downloads)](https://github.com/patrickdappollonio/gc-rust/releases)
+
 - [`gc-rust` a GitHub clone helper](#gc-rust-a-github-clone-helper)
     - [Installation](#installation)
     - [Usage](#usage)
